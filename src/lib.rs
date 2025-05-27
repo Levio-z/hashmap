@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::mem::swap;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     ops::{Index, IndexMut},
@@ -217,7 +218,7 @@ impl<'a, K, V> IntoIterator for &'a HashMap<K, V> {
     type Item = (&'a K, &'a V);
     type IntoIter = Iter<'a, K, V>;
     fn into_iter(self) -> Self::IntoIter {
-        Iter {
+        Self::IntoIter {
             map: self,
             bucket: 0,
             at: 0,
@@ -225,23 +226,59 @@ impl<'a, K, V> IntoIterator for &'a HashMap<K, V> {
     }
 }
 
-impl<K, V> FromIterator<(K,V)> for  HashMap<K, V> 
+impl<K, V> IntoIterator for HashMap<K, V> {
+    type Item = (K, V);
+    type IntoIter = IntoIter<K, V>;
+    fn into_iter(self) -> Self::IntoIter {
+        Self::IntoIter {
+            map: self,
+            bucket: 0,
+            at: 0,
+        }
+    }
+}
+
+pub struct IntoIter<K, V> {
+    map: HashMap<K, V>,
+    bucket: usize,
+    at: usize,
+}
+
+impl<K, V> Iterator for IntoIter<K, V> {
+    type Item = (K, V);
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.map.buckets.get_mut(self.bucket) {
+                Some(bucket) => {
+                    match bucket.pop(){
+                        Some(x) => break Some(x),
+                        None => {
+                            self.bucket +=1;
+                            continue;
+                        }
+                    }
+                }
+                None => break None,
+            }
+        }
+    }
+}
+
+impl<K, V> FromIterator<(K, V)> for HashMap<K, V>
 where
     K: Hash + Eq,
 {
-    fn from_iter<I>(iter:I) ->Self
-    where 
-    I:IntoIterator<Item = (K,V)>
-     {
-        let mut map  = HashMap::new();
-        for (k,v) in iter  {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = (K, V)>,
+    {
+        let mut map = HashMap::new();
+        for (k, v) in iter {
             map.insert(k, v);
         }
         map
     }
 }
-
-
 
 impl<K, Q, V> Index<&Q> for HashMap<K, V>
 where
@@ -264,7 +301,6 @@ where
         self.get_mut(key).expect("Key not found")
     }
 }
-
 
 #[cfg(test)]
 mod tests {
