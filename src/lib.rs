@@ -225,6 +225,24 @@ impl<'a, K, V> IntoIterator for &'a HashMap<K, V> {
     }
 }
 
+impl<K, V> FromIterator<(K,V)> for  HashMap<K, V> 
+where
+    K: Hash + Eq,
+{
+    fn from_iter<I>(iter:I) ->Self
+    where 
+    I:IntoIterator<Item = (K,V)>
+     {
+        let mut map  = HashMap::new();
+        for (k,v) in iter  {
+            map.insert(k, v);
+        }
+        map
+    }
+}
+
+
+
 impl<K, Q, V> Index<&Q> for HashMap<K, V>
 where
     K: Borrow<Q> + Eq + Hash,
@@ -246,6 +264,7 @@ where
         self.get_mut(key).expect("Key not found")
     }
 }
+
 
 #[cfg(test)]
 mod tests {
