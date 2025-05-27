@@ -1,5 +1,4 @@
 use std::borrow::Borrow;
-use std::mem::swap;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     ops::{Index, IndexMut},
@@ -66,6 +65,12 @@ impl<K, V> HashMap<K, V> {
         }
     }
 }
+impl<K, V> Default for HashMap<K, V> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<K, V> HashMap<K, V>
 where
     K: Hash + Eq,
@@ -138,8 +143,8 @@ where
         let index = self.bucket(key);
         self.buckets[index]
             .iter()
-            .find(|&&(ref x, _)| x.borrow() == (key))
-            .map(|&(_, ref v)| v)
+            .find(|&(x, _)| x.borrow() == (key))
+            .map(|(_, v)| v)
     }
 
     pub fn get_mut<Q>(&mut self, key: &Q) -> Option<&mut V>
@@ -160,10 +165,7 @@ where
         Q: Hash + Eq + ?Sized,
     {
         let index = self.bucket(key);
-        self.buckets[index]
-            .iter()
-            .find(|&&(ref x, _)| x.borrow() == key)
-            .is_some()
+        self.buckets[index].iter().any(|(x, _)| x.borrow() == key)
     }
 
     pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
@@ -173,7 +175,7 @@ where
     {
         let index = self.bucket(key);
         let bucket = &mut self.buckets[index];
-        let i = bucket.iter().position(|&(ref x, _)| x.borrow() == key)?;
+        let i = bucket.iter().position(|(x, _)| x.borrow() == key)?;
         self.item -= 1;
         Some(bucket.swap_remove(i).1)
     }
@@ -198,7 +200,7 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
         loop {
             match self.map.buckets.get(self.bucket) {
                 Some(bucket) => match bucket.get(self.at) {
-                    Some(&(ref k, ref v)) => {
+                    Some((k, v)) => {
                         self.at += 1;
                         break Some((k, v));
                     }
@@ -233,7 +235,6 @@ impl<K, V> IntoIterator for HashMap<K, V> {
         Self::IntoIter {
             map: self,
             bucket: 0,
-            at: 0,
         }
     }
 }
@@ -241,7 +242,6 @@ impl<K, V> IntoIterator for HashMap<K, V> {
 pub struct IntoIter<K, V> {
     map: HashMap<K, V>,
     bucket: usize,
-    at: usize,
 }
 
 impl<K, V> Iterator for IntoIter<K, V> {
@@ -249,15 +249,13 @@ impl<K, V> Iterator for IntoIter<K, V> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.map.buckets.get_mut(self.bucket) {
-                Some(bucket) => {
-                    match bucket.pop(){
-                        Some(x) => break Some(x),
-                        None => {
-                            self.bucket +=1;
-                            continue;
-                        }
+                Some(bucket) => match bucket.pop() {
+                    Some(x) => break Some(x),
+                    None => {
+                        self.bucket += 1;
+                        continue;
                     }
-                }
+                },
                 None => break None,
             }
         }

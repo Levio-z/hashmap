@@ -58,7 +58,7 @@ fn main() {
     let items_correct = book_reviews.len();
     for (book, review) in book_reviews {
         println!("{book}: \"{review}\"");
-        items +=1;
+        items += 1;
     }
-    assert_eq!(items,items_correct);
+    assert_eq!(items, items_correct);
 }
